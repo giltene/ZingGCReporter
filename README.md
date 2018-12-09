@@ -1,9 +1,12 @@
 ZingGCReporter
 ===========
 
-ZingGCReporter collects and reports GC activity stats when running
-on a ZingJ JVM. It uses the Zing Java Memory Management MXBeans to
-collect relevant information and summerize it in periodic reports.
+ZingGCReporter is a simple java agent that collects and reports GC
+activity stats when running on a ZingJ JVM. It uses the Zing Java
+Memory Management MXBeans to collect relevant information and
+summerize it in periodic reports that are meant to easily fit into
+time-series and other/similar stats logging and monitoring
+operational workflows.
 
 Options:
 

@@ -32,9 +32,9 @@ java ... -javaagent:ZingGCReporter.jar MyApp myAppArgs
 Or, when parameters need to be set:
 
 ```
-java ... -javaagent:ZingGCReporter.jar="-i 5000" MyApp myAppArgs
+java ... -javaagent:ZingGCReporter.jar="-i 5000 -l gcstats.log" MyApp myAppArgs
 ```
-For a quick demosntration or test ZingGCReporter can be combined with e.g. 
+For a quick demonstration or test ZingGCReporter can be combined with e.g. 
 [HeapFragger](https://github.com/giltene/HeapFragger). For example, the
 following command: 
 

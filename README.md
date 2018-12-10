@@ -2,26 +2,40 @@ ZingGCReporter
 ===========
 
 ZingGCReporter is a simple java agent that collects and reports GC
-activity stats when running on a ZingJ JVM. It uses the Zing Java
+activity stats when running on a Zing JVM. It uses the Zing Java
 Memory Management MXBeans to collect relevant information and
-summerize it in periodic reports that are meant to easily fit into
+summarize it in periodic reports that are meant to easily fit into
 time-series and other/similar stats logging and monitoring
 operational workflows.
 
 Options:
+---
+`
+[-v] [-i intervalLengthMsec] [-t runTimeMsec] [-l logFileName]`
 
-- intervalLengthMsec [-i intervalLengthMsec, default: 10000]: Controsl the length of
-the periodic reporting intervals
+
+- intervalLengthMsec [-i intervalLengthMsec, default: 10000]: Control the
+length of the periodic reporting intervals
 
 - logFile [-l logFileName, default: <unspecified>] specifies the log file to
-output to. Outsputs to standard output when unspecified
+output to. Outputs to standard output when unspecified
 
 - runTimeMsec [-t runTimeMsec, default: 0]: When run as main (not as an agent)
 and runTimeMsec is specified as non-zero, ZingGCReporter will exit
 after the configured amount of time
 
-- versbose [-v , default: false]: Causes verbose output e.g. when GC events are received
+- verbose [-v , default: false]: Causes verbose output e.g. when GC
+events are received
 
+Note that options can use either spaces, commas, or semicolons
+as delimeters. E.g. "-i 1000 -v", "-i,1000,-v", and "-i;1000;-v" are
+all equivalent. This can be useful when e.g. javaagent parameters are
+included in the launching command line that are sensitive to the use
+of spaces within parameters.
+
+
+Running:
+---
 ZingGCReporter will typically be added to existing Java applications as a
 javaagent. E.g. a typical command line will be:
 
@@ -40,7 +54,7 @@ following command:
 
 
 ```
-$JAVA_HOME/bin/java -Xloggc:ggc.log -Xmx5g -XX:+UseZingMXBeans -javaagent:ZingGCReporter.jar="-i 5000" -jar Hearagger.jar -a 1024 -s 1024
+$JAVA_HOME/bin/java -Xloggc:ggc.log -Xmx5g -XX:+UseZingMXBeans -javaagent:ZingGCReporter.jar="-i 5000" -jar HeapFragger.jar -a 1024 -s 1024
 ```
 
 Results in output that looks somewhat like this:

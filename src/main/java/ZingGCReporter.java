@@ -95,6 +95,8 @@ public class ZingGCReporter extends Thread {
 
     static double latestReportedIntervalEndTime = 0.0;
 
+    static long lastReportedLowestOldgenUsed = 0;
+
     static boolean pendingOldgen = false;
 
     public static class IntervalData {
@@ -105,6 +107,7 @@ public class ZingGCReporter extends Thread {
         double oldgenGcDuration;    // In seconds
 
         double longestPause;        // In seconds
+        double totalPause;        // In seconds
 
         long newgenCompletedCount;
         long oldgenCompletedCount;
@@ -114,6 +117,8 @@ public class ZingGCReporter extends Thread {
 
         long allocated; // In bytes
         long promoted;  // In buytes
+
+        long lowestOldgenUsed = Long.MAX_VALUE; // In bytes
 
         IntervalData(final double startTime, final double endTime) {
             this.startTime = startTime;
@@ -148,6 +153,13 @@ public class ZingGCReporter extends Thread {
         while ((pendingIntervals.peek() != null) && pendingIntervals.peek().endTime < endTime) {
             // All information about the interval at the head of the queue has been attributed to it.
             IntervalData interval = pendingIntervals.remove();
+
+            // Propagate lowestOldgenUsed forward from previous report if value was not set in this interval:
+            if (interval.lowestOldgenUsed == Long.MAX_VALUE) {
+                interval.lowestOldgenUsed = lastReportedLowestOldgenUsed;
+            }
+            lastReportedLowestOldgenUsed =  interval.lowestOldgenUsed;
+
             log.format("Interval[%s, start/length: %9.3f/%4.3f sec] ",
                     new Date((long)(interval.startTime * 1000) + vmStartTimeMillis),
                     interval.startTime,
@@ -155,9 +167,11 @@ public class ZingGCReporter extends Thread {
             log.format("GC Util%% [New/Old]: %5.2f%%/%5.2f%%, ",
                     (100 * interval.newgenGcDuration / config.intervalLengthSec),
                     (100 * interval.oldgenGcDuration / config.intervalLengthSec));
-            log.format("longest Pause: %8.6f sec, ", interval.longestPause);
+            log.format("Pause [Longest/Total]: %8.6f/%8.6f sec, ",
+                    interval.longestPause, interval.totalPause);
             log.format("allocation/promotion: %5.3f/%5.3f MB/sec, ",
                     interval.allocated / (config.intervalLengthSec * MB), interval.promoted / (config.intervalLengthSec * MB));
+            log.format("Lowest Oldgen used: %8.3f MB, ", (1.0 * interval.lowestOldgenUsed) / MB);
             log.format("completed GCs new/old: %d/%d, ",
                     interval.newgenCompletedCount, interval.oldgenCompletedCount);
             log.format("longest completed GC new/old: %4.3f/%4.3f sec\n",
@@ -171,10 +185,9 @@ public class ZingGCReporter extends Thread {
             double pauseStartTime =  pause.getElapsedTimeSinceJVMStartSec();
             double pauseEndTime  = pauseStartTime + pause.getDurationSec();
             for (IntervalData interval : pendingIntervals) {
-                interval.longestPause = Math.max(
-                        interval.longestPause,
-                        durationWithinInterval(interval, pauseStartTime, pauseEndTime)
-                );
+                double pauseDuration = durationWithinInterval(interval, pauseStartTime, pauseEndTime);
+                interval.longestPause = Math.max(interval.longestPause, pauseDuration);
+                interval.totalPause += pauseDuration;
             }
         }
     }
@@ -254,13 +267,19 @@ public class ZingGCReporter extends Thread {
                     interval.longestCompletedNewgenDuration =
                             Math.max(interval.longestCompletedNewgenDuration,
                                     gcDetails.getCollectionDuration());
+                    MemoryUsage oldgenMemoryUsage = gcDetails.getMemoryUsageAtEndOfGC().get("GenPauseless Old Gen");
+                    if (oldgenMemoryUsage != null) {
+                        interval.lowestOldgenUsed = Math.min(
+                                interval.lowestOldgenUsed, oldgenMemoryUsage.getUsed());
+                    }
                 }
 
                 // Attribute worst App delay observed between newgen collection ends as
                 // a pause (conservatively, to all spanned intervals):
                 if (overlapsWithInterval(interval, endTimeOfPreviousCollection, gcDetails.getEndTime())) {
-                    interval.longestPause =
-                            Math.max(interval.longestPause, gcDetails.getMaximumApplicationThreadDelay());
+                    double delayDuration = gcDetails.getMaximumApplicationThreadDelay();
+                    interval.longestPause = Math.max(interval.longestPause, delayDuration);
+                    interval.totalPause += delayDuration;
                 }
             }
 
@@ -298,6 +317,11 @@ public class ZingGCReporter extends Thread {
                     interval.longestCompletedOldgenDuration =
                             Math.max(interval.longestCompletedOldgenDuration,
                                     gcDetails.getCollectionDuration());
+                    MemoryUsage oldgenMemoryUsage = gcDetails.getMemoryUsageAtEndOfGC().get("GenPauseless Old Gen");
+                    if (oldgenMemoryUsage != null) {
+                        interval.lowestOldgenUsed = Math.min(
+                                interval.lowestOldgenUsed, oldgenMemoryUsage.getUsed());
+                    }
                 }
             }
 
